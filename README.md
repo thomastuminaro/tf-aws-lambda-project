@@ -50,7 +50,7 @@ Create Lambda function in Python with code
 
 As default : no access logging + no CloudWatch Log Group created 
 
-curl --aws-sigv4 "aws:amz:eu-west-3:execute-api" --user "$(aws configure get aws_access_key_id):$(aws configure get aws_secret_access_key)" "https://6qp3zeqgh0.execute-api.eu-west-3.amazonaws.com/test/admin/" --output -
+curl --aws-sigv4 "aws:amz:eu-west-3:execute-api" --user "aws configure get aws_access_key_id:aws configure get aws_secret_access_key" "https://6qp3zeqgh0.execute-api.eu-west-3.amazonaws.com/test/admin/" --output -
 
 curl --aws-sigv4 "aws:amz:eu-west-3:execute-api" --user "accesskey:secrettkey" "https://6qp3zeqgh0.execute-api.eu-west-3.amazonaws.com/test/admin/" --output -
 
