@@ -1,0 +1,1 @@
+# create function + upload zip + configure vpc + configure role
