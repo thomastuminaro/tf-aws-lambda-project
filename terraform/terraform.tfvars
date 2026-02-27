@@ -23,3 +23,11 @@ vpc_lambda_subnets = {
     sub_cidr = "10.0.21.0/24"
   }
 }
+
+db_config = {
+  db_class   = "db.t4g.micro"
+  db_engine  = "mysql"
+  db_storage = 10
+  db_user    = "admin"
+  db_name = "db_customers"
+}
