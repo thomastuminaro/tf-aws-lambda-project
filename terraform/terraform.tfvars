@@ -29,5 +29,5 @@ db_config = {
   db_engine  = "mysql"
   db_storage = 10
   db_user    = "admin"
-  db_name = "db_customers"
+  db_name    = "db_customers"
 }

@@ -9,7 +9,7 @@ variable "common_tags" {
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "eu-west-3"
 }
 
@@ -64,7 +64,7 @@ variable "db_config" {
     db_class   = string
     db_storage = number
     db_user    = string
-    db_name = string
+    db_name    = string
   })
 
   validation {
