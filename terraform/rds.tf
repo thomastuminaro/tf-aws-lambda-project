@@ -21,7 +21,7 @@ resource "aws_db_instance" "db" {
   vpc_security_group_ids = [ aws_security_group.db_proxy.id ]
 
   tags = merge(var.common_tags, {
-    Name = "${var.common_tags.Project}-db-subnets"
+    Name = "${var.common_tags.Project}-db"
   })
 }
 
