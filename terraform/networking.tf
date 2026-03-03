@@ -1,8 +1,10 @@
-# VPC - subnets - security groups - ENI - VPC endpoint 
+# VPC - subnets - security groups - ENI (managed automatically by AWS) - VPC endpoint
 
 # Creating main VPC resource 
 resource "aws_vpc" "vpc" {
   cidr_block = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support = true
 
   tags = merge(var.common_tags, {
     Name = "${var.common_tags.Project}-vpc"
@@ -41,7 +43,7 @@ resource "aws_subnet" "lambda" {
 
 resource "aws_security_group" "lambda_proxy" {
   name        = "${var.common_tags.Project}-lambda-proxy"
-  description = "Security group to manage connections between Lambda function and RDS proxy."
+  description = "Security group to manage connections between Lambda function and RDS proxy and to VPC endpoint."
   vpc_id      = aws_vpc.vpc.id
 
   tags = merge(var.common_tags, {
@@ -55,6 +57,12 @@ resource "aws_vpc_security_group_egress_rule" "allow_sql_from_lambda_to_proxy" {
   from_port                    = 3306
   to_port                      = 3306
   ip_protocol                  = "tcp"
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_traffic_to_proxy" {
+  security_group_id            = aws_security_group.lambda_proxy.id
+  referenced_security_group_id = aws_security_group.vpcendpoint.id
+  ip_protocol                  = "-1"
 }
 
 # Creating required security group and rule for RDS proxy   
@@ -103,4 +111,34 @@ resource "aws_vpc_security_group_ingress_rule" "allow_sql_from_proxy_to_db" {
   from_port                    = 3306
   to_port                      = 3306
   ip_protocol                  = "tcp"
+}
+
+# Managing VPC Endpoint used for RDS proxy 
+
+resource "aws_security_group" "vpcendpoint" {
+  name        = "${var.common_tags.Project}-endpoint"
+  description = "Security group for VPC endpoint, only allow connections from Lambda."
+  vpc_id      = aws_vpc.vpc.id
+
+  tags = merge(var.common_tags, {
+    Name = "${var.common_tags.Project}-endpoint"
+  })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_traffic_from_lambda" {
+  security_group_id            = aws_security_group.vpcendpoint.id
+  referenced_security_group_id = aws_security_group.lambda_proxy.id
+  ip_protocol                  = "-1"
+}
+
+resource "aws_vpc_endpoint" "lambda" {
+  vpc_id            = aws_vpc.vpc.id
+  service_name      = "com.amazonaws.${var.region}.lambda"
+  vpc_endpoint_type = "Interface"
+
+  security_group_ids = [aws_security_group.vpcendpoint.id]
+
+  subnet_ids = [for sub in aws_subnet.lambda : sub.id]
+
+  private_dns_enabled = true
 }

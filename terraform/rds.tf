@@ -40,7 +40,7 @@ resource "aws_db_proxy" "proxy" {
     description = "Proxy authentication configuration."
     iam_auth    = "REQUIRED"
     #username    = var.db_config.db_user
-    secret_arn  = local.secret_id
+    secret_arn = local.secret_id
   }
 
   tags = merge(var.common_tags, {

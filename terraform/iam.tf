@@ -1,4 +1,4 @@
-# roles VPC + invoke DB for Lambda + probably access secret manager secret
+# roles VPC + invoke DB for Lambda + probably access secret manager secret ++++ ROLE FOR LAMBDA TO VPC ENDPOINT (not needed)
 
 # Getting information about user calling the script
 data "aws_caller_identity" "current" {}
@@ -42,7 +42,7 @@ resource "aws_iam_policy" "writecloudwatch" {
           "logs:PutLogEvents"
         ],
         "Resource" : [
-          "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.lambda_function_name}:*" ### TODO AND TO TEST 
+          "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.lambda_function_name}:*" ### TODO AND TO TEST 
         ]
       }
     ]

@@ -82,3 +82,40 @@ variable "db_config" {
     error_message = "Please select DB storage between 10 and 20G."
   }
 }
+
+# LAMBDA VARS
+
+variable "lambda_logging" {
+  type = object({
+    log_app_level    = string
+    log_system_level = string
+    log_format       = string
+  })
+
+  default = {
+    log_app_level    = "INFO"
+    log_system_level = "INFO"
+    log_format       = "JSON"
+  }
+
+  validation {
+    condition     = contains(["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"], var.lambda_logging.log_app_level)
+    error_message = "Configure supported log level for application. : TRACE, DEBUG, INFO, WARN, ERROR, FATAL."
+  }
+
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARN"], var.lambda_logging.log_system_level)
+    error_message = "Configure supported log level for system. : DEBUG, INFO, WARN."
+  }
+
+  validation {
+    condition     = contains(["Text", "JSON"], var.lambda_logging.log_format)
+    error_message = "Configure supported log format : Text, JSON."
+  }
+}
+
+variable "lambda_function_name" {
+  type = string
+
+  default = "test"
+}
