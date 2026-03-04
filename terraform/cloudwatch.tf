@@ -4,3 +4,10 @@ resource "aws_cloudwatch_log_group" "lambda" {
 
   tags = var.common_tags
 }
+
+resource "aws_cloudwatch_log_group" "api" {
+  name              = "/aws/apigw/lambda"
+  retention_in_days = 1
+
+  tags = var.common_tags
+}

@@ -2,3 +2,5 @@ lambda-package/
 terraform/.terraform/
 terraform/.terraform.tfstate
 terraform/.terraform.tfstate.backup
+src/pymysql/
+src/pymysql-1.1.2.dist-info/

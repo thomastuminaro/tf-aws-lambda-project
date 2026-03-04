@@ -2,7 +2,7 @@
 
 data "archive_file" "lambda" {
   type        = "zip"
-  source_file = "../src/main.py"
+  source_dir = "../src/" 
   output_path = "../src/function.zip"
 }
 
@@ -23,6 +23,14 @@ resource "aws_lambda_function" "lambda" { # ADD LOGGING
     application_log_level = "INFO"
     log_format            = "JSON"
     system_log_level      = "INFO"
+  }
+
+  environment {
+    variables = {
+      proxy_endpoint = "${aws_db_proxy.proxy.endpoint}"
+      db_user = "${var.db_config.db_user}"
+      db_name = "${var.db_config.db_name}"
+    }
   }
 
   depends_on = [aws_cloudwatch_log_group.lambda]

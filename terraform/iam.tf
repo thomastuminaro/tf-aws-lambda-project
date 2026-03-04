@@ -127,3 +127,33 @@ resource "aws_iam_role_policy_attachment" "proxy-secret" {
   role       = aws_iam_role.proxy.name
   policy_arn = aws_iam_policy.proxy-secretmanager.arn
 }
+
+# API access to CloudWatch
+
+data "aws_iam_policy" "apicloudwatch" {
+  name = "AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+resource "aws_iam_role" "apicloudwatch" {
+  name = "${var.common_tags.Project}-api-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  tags = var.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "apicloudwatch" {
+  role       = aws_iam_role.apicloudwatch.name
+  policy_arn = data.aws_iam_policy.apicloudwatch.arn
+}
