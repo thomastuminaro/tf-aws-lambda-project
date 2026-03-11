@@ -59,10 +59,12 @@ resource "aws_vpc_security_group_egress_rule" "allow_sql_from_lambda_to_proxy" {
   ip_protocol                  = "tcp"
 }
 
-resource "aws_vpc_security_group_egress_rule" "allow_traffic_to_proxy" {
+resource "aws_vpc_security_group_egress_rule" "allow_traffic_to_endpoint" {
   security_group_id            = aws_security_group.lambda_proxy.id
   referenced_security_group_id = aws_security_group.vpcendpoint.id
-  ip_protocol                  = "-1"
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
 }
 
 # Creating required security group and rule for RDS proxy   
@@ -128,12 +130,14 @@ resource "aws_security_group" "vpcendpoint" {
 resource "aws_vpc_security_group_ingress_rule" "allow_traffic_from_lambda" {
   security_group_id            = aws_security_group.vpcendpoint.id
   referenced_security_group_id = aws_security_group.lambda_proxy.id
-  ip_protocol                  = "-1"
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
 }
 
-resource "aws_vpc_endpoint" "lambda" {
+resource "aws_vpc_endpoint" "secretsmanager" {
   vpc_id            = aws_vpc.vpc.id
-  service_name      = "com.amazonaws.${var.region}.lambda"
+  service_name      = "com.amazonaws.${var.region}.secretsmanager"
   vpc_endpoint_type = "Interface"
 
   security_group_ids = [aws_security_group.vpcendpoint.id]

@@ -2,7 +2,7 @@
 
 data "archive_file" "lambda" {
   type        = "zip"
-  source_dir = "../src/" 
+  source_dir  = "../src/"
   output_path = "../src/function.zip"
 }
 
@@ -28,8 +28,9 @@ resource "aws_lambda_function" "lambda" { # ADD LOGGING
   environment {
     variables = {
       proxy_endpoint = "${aws_db_proxy.proxy.endpoint}"
-      db_user = "${var.db_config.db_user}"
-      db_name = "${var.db_config.db_name}"
+      db_user        = "${var.db_config.db_user}"
+      db_name        = "${var.db_config.db_name}"
+      db_secret      = "${local.secret_id}"
     }
   }
 

@@ -4,7 +4,7 @@
 data "aws_caller_identity" "current" {}
 
 # Policy for AWS Lambda role to access database
-resource "aws_iam_policy" "executedb" {
+/* resource "aws_iam_policy" "executedb" {
   name        = "${var.common_tags.Project}-allow-lambda-db"
   path        = "/"
   description = "Policy to allow Lambda function to execute actions on MySQL DB."
@@ -16,6 +16,25 @@ resource "aws_iam_policy" "executedb" {
         "Effect" : "Allow",
         "Action" : "rds-db:connect",
         "Resource" : "arn:aws:rds-db:${var.region}:${data.aws_caller_identity.current.account_id}:dbuser:${var.common_tags.Project}-db/${aws_db_instance.db.username}"
+      }
+    ]
+  })
+} */
+
+resource "aws_iam_policy" "getsecret" {
+  name        = "${var.common_tags.Project}-allow-lambda-secret"
+  path        = "/"
+  description = "Allowing Lambda to fetch secrets manager info."
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "secretsmanager:GetSecretValue"
+        ],
+        "Resource" : "${local.secret_id}"
       }
     ]
   })
@@ -70,10 +89,10 @@ resource "aws_iam_role" "lambda" {
 }
 
 # Adding policy to Lambda role, will need access DB, access secret manager, access CloudWatch ++ VPC executioner lambda
-resource "aws_iam_role_policy_attachment" "lambda-db" {
+/* resource "aws_iam_role_policy_attachment" "lambda-db" {
   role       = aws_iam_role.lambda.name
   policy_arn = aws_iam_policy.executedb.arn
-}
+} */
 
 data "aws_iam_policy" "lambda-vpc" {
   name = "AWSLambdaVPCAccessExecutionRole"
@@ -89,7 +108,12 @@ resource "aws_iam_role_policy_attachment" "lambda-cloudwatch" {
   policy_arn = aws_iam_policy.writecloudwatch.arn
 }
 
-resource "aws_iam_policy" "proxy-secretmanager" {
+resource "aws_iam_role_policy_attachment" "lambda-secretmanager" {
+  role       = aws_iam_role.lambda.name
+  policy_arn = aws_iam_policy.getsecret.arn
+}
+
+/* resource "aws_iam_policy" "proxy-secretmanager" {
   name        = "${var.common_tags.Project}-allow-proxy-secret"
   path        = "/"
   description = "Policy to allow RDS proxy to access credentials of DB stored in secret manager."
@@ -100,11 +124,11 @@ resource "aws_iam_policy" "proxy-secretmanager" {
       {
         "Effect" : "Allow",
         "Action" : "secretsmanager:GetSecretValue",
-        "Resource" : "${aws_db_instance.db.master_user_secret[0].secret_arn}"
+        "Resource" : "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${local.secret_name}"
       }
     ]
   })
-}
+} */
 
 resource "aws_iam_role" "proxy" {
   name = "${var.common_tags.Project}-proxy-secret"
@@ -125,7 +149,7 @@ resource "aws_iam_role" "proxy" {
 
 resource "aws_iam_role_policy_attachment" "proxy-secret" {
   role       = aws_iam_role.proxy.name
-  policy_arn = aws_iam_policy.proxy-secretmanager.arn
+  policy_arn = aws_iam_policy.getsecret.arn
 }
 
 # API access to CloudWatch
