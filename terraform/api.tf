@@ -24,7 +24,7 @@ resource "aws_apigatewayv2_route" "root" {
   authorization_type = "AWS_IAM"
 }
 
-resource "aws_apigatewayv2_deployment" "lambda" {
+/* resource "aws_apigatewayv2_deployment" "lambda" {
   api_id      = aws_apigatewayv2_api.main.id
   description = "Main deployment for the Lambda function API."
 
@@ -34,12 +34,12 @@ resource "aws_apigatewayv2_deployment" "lambda" {
       jsonencode(aws_apigatewayv2_route.root),
     ])))
   }
-}
+} */
 
 resource "aws_apigatewayv2_stage" "lambda" {
   api_id        = aws_apigatewayv2_api.main.id
   name          = "lambda"
-  deployment_id = aws_apigatewayv2_deployment.lambda.id
+  #deployment_id = aws_apigatewayv2_deployment.lambda.id
   auto_deploy   = true
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api.arn

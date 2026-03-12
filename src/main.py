@@ -1,82 +1,145 @@
 import os
-import pymysql
-import pymysql.cursors
-import boto3
-import ssl
 import json
 import logging
-
-db_user = os.environ["db_user"]
-db_secret = os.environ["db_secret"]
-db_endpoint = os.environ["proxy_endpoint"]
-db_port = 3306
-db_name = os.environ["db_name"]
+import boto3
+import pymysql
+import pymysql.cursors
 
 logging.basicConfig(level=logging.INFO)
 
-class GetSecretWrapper:
-    def __init__(self, secretsmanager_client):
-        self.client = secretsmanager_client
+PROXY_ENDPOINT = os.environ["proxy_endpoint"]
+DB_USER = os.environ["db_user"]
+DB_NAME = os.environ["db_name"]
+DB_SECRET = os.environ["db_secret"]
+
+# Global caches (persist between Lambda invocations)
+conn = None
+DB_PASSWORD = None
 
 
-    def get_secret(self, secret_name):
-        """
-        Retrieve individual secrets from AWS Secrets Manager using the get_secret_value API.
-        This function assumes the stack mentioned in the source code README has been successfully deployed.
-        This stack includes 7 secrets, all of which have names beginning with "mySecret".
+def get_secret():
+    global DB_PASSWORD
 
-        :param secret_name: The name of the secret fetched.
-        :type secret_name: str
-        """
-        try:
-            get_secret_value_response = self.client.get_secret_value(
-                SecretId=secret_name
-            )
-            logging.info("Secret retrieved successfully.")
-            return json.dumps(get_secret_value_response["SecretString"])["password"] #type: ignore
-        except self.client.exceptions.ResourceNotFoundException:
-            msg = f"The requested secret {secret_name} was not found."
-            logging.info(msg)
-            return msg
-        except Exception as e:
-            logging.error(f"An unknown error occurred: {str(e)}.")
-            raise
+    if DB_PASSWORD:
+        return DB_PASSWORD
 
-def get_creds(secret_name):
-    """
-    Retrieve a secret from AWS Secrets Manager.
+    logging.info("Retrieving DB password from Secrets Manager")
 
-    :param secret_name: Name of the secret to retrieve.
-    :type secret_name: str
-    """
-    try:
-        # Validate secret_name
-        if not secret_name:
-            raise ValueError("Secret name must be provided.")
-        # Retrieve the secret by name
-        client = boto3.client("secretsmanager")
-        wrapper = GetSecretWrapper(client)
-        secret = wrapper.get_secret(secret_name)
-        # Note: Secrets should not be logged.
-        return secret
-    except Exception as e:
-        logging.error(f"Error retrieving secret: {e}")
-        raise
+    client = boto3.client("secretsmanager")
+    response = client.get_secret_value(SecretId=DB_SECRET)
+
+    DB_PASSWORD = json.loads(response["SecretString"])["password"]
+    return DB_PASSWORD
+
 
 def get_connection():
-    return pymysql.connect(host=db_endpoint, user=db_user, password=get_creds(db_secret), database=db_name, charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor)
+    global conn
+
+    if conn and conn.open:
+        return conn
+
+    logging.info("Creating new DB connection")
+
+    conn = pymysql.connect(
+        host=PROXY_ENDPOINT,
+        user=DB_USER,
+        password=get_secret(),
+        database=DB_NAME,
+        port=3306,
+        ssl={},  # required for caching_sha2_password
+        connect_timeout=5,
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True
+    )
+
+    return conn
+
+
+def create_table_if_not_exist():
+    logging.info("Ensuring customers table exists")
+
+    conn = get_connection()
+
+    query = """
+    CREATE TABLE IF NOT EXISTS customers(
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(255),
+        last_name VARCHAR(255),
+        creator VARCHAR(255)
+    );
+    """
+
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+
+
+def check_customer_exists(first_name, last_name):
+    logging.info(f"Checking if {first_name} {last_name} exists")
+
+    conn = get_connection()
+
+    query = """
+    SELECT id
+    FROM customers
+    WHERE first_name=%s AND last_name=%s
+    LIMIT 1
+    """
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, (first_name, last_name))
+        result = cursor.fetchone()
+
+    return result is not None
+
+
+def create_customer(first_name, last_name, creator="admin"):
+    logging.info(f"Inserting {first_name} {last_name}")
+
+    conn = get_connection()
+
+    query = """
+    INSERT INTO customers (first_name, last_name, creator)
+    VALUES (%s, %s, %s)
+    """
+
+    with conn.cursor() as cursor:
+        cursor.execute(query, (first_name, last_name, creator))
+        customer_id = cursor.lastrowid
+
+    logging.info(f"Inserted customer ID {customer_id}")
+    return customer_id
+
 
 def list_customers():
-    connection = get_connection()
-    with connection:
-        with connection.cursor() as cursor:
-            sql = "select * from customers"
-            cursor.execute(sql)
-            result = cursor.fetchall()
-    return result
+    logging.info("Listing customers")
+
+    conn = get_connection()
+
+    query = "SELECT * FROM customers"
+
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+    return results
+
 
 def lambda_handler(event, context):
-    return{
-        'statusCode': 200,
-        'body': json.dumps(list_customers())
+
+    create_table_if_not_exist()
+
+    customers = [
+        ("John", "Doe"),
+        ("Jane", "Smith")
+    ]
+
+    for first, last in customers:
+        if not check_customer_exists(first, last):
+            create_customer(first, last)
+
+    results = list_customers()
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps(results)
     }

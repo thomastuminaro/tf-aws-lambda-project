@@ -29,8 +29,9 @@ resource "aws_db_proxy" "proxy" {
   name                   = "${var.common_tags.Project}-proxy"
   debug_logging          = false
   engine_family          = "MYSQL"
+  default_auth_scheme    = "NONE"
   idle_client_timeout    = 1800
-  require_tls            = true
+  require_tls            = false
   role_arn               = aws_iam_role.proxy.arn
   vpc_security_group_ids = [aws_security_group.proxy_lambda.id]
   vpc_subnet_ids         = [for sub in aws_subnet.db : sub.id]
@@ -38,7 +39,7 @@ resource "aws_db_proxy" "proxy" {
   auth {
     auth_scheme = "SECRETS"
     description = "Proxy authentication configuration."
-    iam_auth    = "REQUIRED"
+    iam_auth    = "DISABLED"
     #username    = var.db_config.db_user
     secret_arn = local.secret_id
   }
