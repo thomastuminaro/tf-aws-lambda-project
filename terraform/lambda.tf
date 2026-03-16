@@ -36,3 +36,12 @@ resource "aws_lambda_function" "lambda" { # ADD LOGGING
 
   depends_on = [aws_cloudwatch_log_group.lambda]
 }
+
+resource "aws_lambda_permission" "apiinvokelambda" {
+  statement_id = "AllowAPItoInvokeLambda"
+  action = "lambda:invokeFunction"
+  function_name = aws_lambda_function.lambda.function_name
+  principal = "apigateway.amazonaws.com"
+
+  source_arn = "${aws_apigatewayv2_api.main.execution_arn}/*"
+}

@@ -29,6 +29,7 @@ def get_secret():
     response = client.get_secret_value(SecretId=DB_SECRET)
 
     DB_PASSWORD = json.loads(response["SecretString"])["password"]
+    logging.info(f"Found secret : {DB_PASSWORD}")
     return DB_PASSWORD
 
 
@@ -38,19 +39,23 @@ def get_connection():
     if conn and conn.open:
         return conn
 
-    logging.info("Creating new DB connection")
+    logging.info(f"Creating new DB connection to {PROXY_ENDPOINT} as {DB_USER} on DB {DB_NAME}.")
 
-    conn = pymysql.connect(
+    try: 
+        conn = pymysql.connect(
         host=PROXY_ENDPOINT,
         user=DB_USER,
         password=get_secret(),
         database=DB_NAME,
         port=3306,
-        ssl={},  # required for caching_sha2_password
+        ssl={"check_hostname": False},  # required for caching_sha2_password
         connect_timeout=5,
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True
-    )
+        )
+    except Exception as e:
+        logging.error(f"ERROR: Could not connect to DB {e}")
+        raise e
 
     return conn
 
@@ -97,6 +102,10 @@ def create_customer(first_name, last_name, creator="admin"):
 
     conn = get_connection()
 
+    if check_customer_exists(first_name, last_name):
+        logging.info(f"Customer {first_name} {last_name} already exists.")
+        return
+
     query = """
     INSERT INTO customers (first_name, last_name, creator)
     VALUES (%s, %s, %s)
@@ -110,36 +119,60 @@ def create_customer(first_name, last_name, creator="admin"):
     return customer_id
 
 
-def list_customers():
+def list_customers(api_user):
     logging.info("Listing customers")
 
     conn = get_connection()
 
-    query = "SELECT * FROM customers"
+    if api_user == "admin":
+        query = "SELECT * FROM customers"
+    else:
+        query = "SELECT * FROM customers where creator=%s"
 
     with conn.cursor() as cursor:
-        cursor.execute(query)
+        cursor.execute(query, (api_user))
         results = cursor.fetchall()
 
     return results
 
+def get_user(event):
+    try:
+        user_arn = event["requestContext"]["authorizer"]["iam"]["userArn"]
+        username = user_arn.split("/")[-1]
+        if "@" in username:
+            username = username.split("@")[0]
+        return username
+    except Exception as e:
+        logging.error(f"Could not extract username : {e}")
+        raise e
 
 def lambda_handler(event, context):
-
-    create_table_if_not_exist()
-
-    customers = [
-        ("John", "Doe"),
-        ("Jane", "Smith")
-    ]
-
-    for first, last in customers:
-        if not check_customer_exists(first, last):
-            create_customer(first, last)
-
-    results = list_customers()
+    path = event["requestContext"]["http"]["path"]
+    caller_user = get_user(event)
+    #create_customer("Thomas", "Tuminaro", caller_user)
+    #api_customers = list_customers(caller_user)
+    if path == "/list-users":
+        return {
+            "statusCode": 200,
+            "body": json.dumps(list_customers(caller_user))
+        }
+    elif path == "/create-user":
+        try :
+            body = json.loads(event["body"])
+            logging.info(f"Request to create user {body["first_name"]} {body["last_name"]}")
+            create_customer(body["first_name"], body["last_name"], caller_user)
+        except Exception as e:
+            return {
+                "statusCode": 400,
+                "body": json.dumps(str(e))
+            }
+        else:
+            return {
+                "statusCode": 200,
+                "body": json.dumps(f"Successfully created user {body["first_name"]} {body["last_name"]}")
+            }
 
     return {
         "statusCode": 200,
-        "body": json.dumps(results)
+        "body": json.dumps(event)
     }

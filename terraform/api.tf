@@ -38,7 +38,7 @@ resource "aws_apigatewayv2_route" "root" {
 
 resource "aws_apigatewayv2_stage" "lambda" {
   api_id        = aws_apigatewayv2_api.main.id
-  name          = "lambda"
+  name          = "customers"
   #deployment_id = aws_apigatewayv2_deployment.lambda.id
   auto_deploy   = true
   access_log_settings {
@@ -54,8 +54,10 @@ resource "aws_apigatewayv2_stage" "lambda" {
       responseLength = "$context.responseLength"
     })
   }
-  route_settings {
+  depends_on = [ aws_cloudwatch_log_group.api ]
+  /* route_settings {
     route_key     = aws_apigatewayv2_route.root.route_key
     logging_level = "INFO"
-  }
+  } */
 }
+
