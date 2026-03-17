@@ -49,3 +49,28 @@ resource "aws_db_proxy" "proxy" {
   })
 }
 
+resource "aws_db_proxy_default_target_group" "default" {
+  db_proxy_name = aws_db_proxy.proxy.name
+
+  connection_pool_config {
+    connection_borrow_timeout    = 120
+    init_query                   = "SET x=1, y=2"
+    max_connections_percent      = 100
+    max_idle_connections_percent = 50
+    session_pinning_filters      = ["EXCLUDE_VARIABLE_SETS"]
+  }
+
+  lifecycle {
+    replace_triggered_by = [ aws_db_proxy.proxy.id ]
+  }
+}
+
+resource "aws_db_proxy_target" "db" {
+  db_instance_identifier = aws_db_instance.db.identifier
+  db_proxy_name =  aws_db_proxy.proxy.name
+  target_group_name = aws_db_proxy_default_target_group.default.name
+
+  lifecycle {
+    replace_triggered_by = [ aws_db_proxy.proxy.id ]
+  }
+}
